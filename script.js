@@ -24,13 +24,54 @@ function initAdmin() {
       banned: false,
       role: "admin",
     };
-  } else {
-    // Fix nếu balance bị 0
-    if (data[ADMIN_NAME].balance === 0) {
-      data[ADMIN_NAME].balance = ADMIN_BALANCE;
-    }
+  } else if (data[ADMIN_NAME].balance === 0) {
+    data[ADMIN_NAME].balance = ADMIN_BALANCE;
   }
   saveData(data);
+}
+
+// Register - CHO PHÉP TẠO VÔ HẠN ACCOUNT
+function register() {
+  const username = document.getElementById("user").value.trim();
+  const password = document.getElementById("pass").value;
+  const msg = document.getElementById("msg");
+
+  if (!username || !password) {
+    msg.textContent = "Nhập username và password";
+    msg.style.color = "orange";
+    return;
+  }
+
+  let data = getData();
+
+  if (data[username]) {
+    msg.textContent = "Username đã tồn tại";
+    msg.style.color = "orange";
+    return;
+  }
+
+  // ────────────────────────────────────────────────
+  // ĐÃ XÓA GIỚI HẠN → TẠO THOẢI MÁI
+  // ────────────────────────────────────────────────
+
+  let maxId = 1000;
+  Object.values(data).forEach((u) => {
+    if (u.id > maxId) maxId = u.id;
+  });
+  const newId = maxId + 1;
+
+  data[username] = {
+    id: newId,
+    pass: password,
+    balance: 10000,
+    banned: false,
+    role: "player",
+  };
+
+  saveData(data);
+
+  msg.textContent = `Đăng ký thành công! ID: ${newId}. Đăng nhập ngay.`;
+  msg.style.color = "#0f0";
 }
 
 // Login
@@ -64,63 +105,18 @@ function login() {
   document.getElementById("auth").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
 
-  // Hiển thị tên + ID
   document.querySelector("#welcome span").textContent =
     username + " (ID: " + user.id + ")";
+
   document.getElementById("bal").textContent =
     `Số dư: ${user.balance.toLocaleString()} VND`;
 
-  if (username === ADMIN_NAME) {
+  if (user.role === "admin") {
     document.getElementById("adminPanel").classList.remove("hidden");
     loadPlayerList();
   }
 
   msg.textContent = "";
-}
-
-// Register (chỉ 1 player)
-function register() {
-  const username = document.getElementById("user").value.trim();
-  const password = document.getElementById("pass").value;
-  const msg = document.getElementById("msg");
-
-  if (!username || !password) {
-    msg.textContent = "Nhập username và password";
-    msg.style.color = "orange";
-    return;
-  }
-
-  let data = getData();
-
-  if (data[username]) {
-    msg.textContent = "Username đã tồn tại";
-    msg.style.color = "orange";
-    return;
-  }
-
-  if (Object.keys(data).length >= 2) {
-    msg.textContent = "Chỉ được tạo 1 player duy nhất";
-    msg.style.color = "orange";
-    return;
-  }
-
-  let maxId = 1000;
-  Object.values(data).forEach((u) => {
-    if (u.id > maxId) maxId = u.id;
-  });
-  const newId = maxId + 1;
-
-  data[username] = {
-    id: newId,
-    pass: password,
-    balance: 10000,
-    banned: false,
-    role: "player",
-  };
-
-  saveData(data);
-  msg.textContent = `Đăng ký thành công! ID player: ${newId}. Đăng nhập ngay.`;
-  msg.style.color = "#0f0";
 }
 
 // Bet
@@ -132,8 +128,15 @@ function bet() {
   const user = data[current];
   const amount = parseInt(document.getElementById("bet").value) || 0;
 
-  if (amount < 1000 || amount > user.balance) {
-    alert("Cược không hợp lệ");
+  if (amount < 1000 || amount > user.balance || isNaN(amount)) {
+    alert("Cược không hợp lệ: ≥1000 và ≤ số dư!");
+    return;
+  }
+
+  if (
+    amount > user.balance * 0.5 &&
+    !confirm(`Cược lớn (${amount.toLocaleString()} VND). Xác nhận?`)
+  ) {
     return;
   }
 
@@ -143,78 +146,113 @@ function bet() {
     `Số dư: ${user.balance.toLocaleString()} VND`;
 
   const win = Math.random() < 0.5;
-  const winner = win ? "Đông" : "Tây"; // đơn giản hóa
+  const selectedSide = document.getElementById("side").value;
+  const winner = win
+    ? selectedSide === "dong"
+      ? "Đông"
+      : "Tây"
+    : selectedSide === "dong"
+      ? "Tây"
+      : "Đông";
 
   const res = document.getElementById("res");
-  res.innerHTML = win
-    ? `Rồng ${winner} thắng! +${amount.toLocaleString()} 🎉`
-    : `Rồng ${winner} thắng! -${amount.toLocaleString()} 😢`;
-  res.style.color = win ? "#0f0" : "#f44";
+
+  if (win) {
+    user.balance += amount * 2; // hoàn vốn + thắng bằng vốn → tổng +amount
+    saveData(data);
+    document.getElementById("bal").textContent =
+      `Số dư: ${user.balance.toLocaleString()} VND`;
+    res.innerHTML = `Rồng ${winner} thắng! +${amount.toLocaleString()} 🎉`;
+    res.style.color = "#0f0";
+  } else {
+    res.innerHTML = `Rồng ${winner} thắng! -${amount.toLocaleString()} 😢`;
+    res.style.color = "#f44";
+  }
+
+  document.getElementById("bet").value = "";
 }
 
-// Load player list cho admin
+// Load danh sách người chơi
 function loadPlayerList() {
   const data = getData();
   const ul = document.getElementById("plist");
   ul.innerHTML = "";
 
   Object.entries(data).forEach(([name, u]) => {
-    if (name === ADMIN_NAME) return;
     const li = document.createElement("li");
-    li.innerHTML = `ID: ${u.id} | ${name} | ${u.balance.toLocaleString()} VND ${u.banned ? "(BANNED)" : ""}`;
+    li.innerHTML = `ID: ${u.id} | ${name} | ${u.balance.toLocaleString()} VND ${u.banned ? "(BANNED)" : ""} ${u.role === "admin" ? "(ADMIN)" : ""}`;
     ul.appendChild(li);
   });
 }
 
-// Admin action
+// Admin actions - Tự động reload sau khi thay đổi
 function admin(type) {
-  const id = parseInt(document.getElementById("tid").value);
-  if (!id) return alert("Nhập ID player!");
+  const idInput = document.getElementById("tid");
+  const id = parseInt(idInput.value);
+  if (!id) return alert("Nhập ID người chơi!");
 
   const data = getData();
   let targetName = null;
   let target = null;
 
   Object.entries(data).forEach(([name, u]) => {
-    if (u.id === id && name !== ADMIN_NAME) {
+    if (u.id === id) {
       targetName = name;
       target = u;
     }
   });
 
-  if (!target) return alert("Không tìm thấy player với ID này");
+  if (!target) return alert("Không tìm thấy người dùng với ID này!");
 
   if (type === "find") {
     document.getElementById("ainfo").textContent =
-      `${targetName} (ID: ${target.id}) - Số dư: ${target.balance.toLocaleString()} VND - ${target.banned ? "BANNED" : "OK"}`;
-  } else if (type === "add" || type === "sub") {
+      `${targetName} (ID: ${target.id}) - Số dư: ${target.balance.toLocaleString()} VND - ${target.banned ? "BANNED" : "OK"} ${target.role === "admin" ? "(ADMIN)" : ""}`;
+    return;
+  }
+
+  if (type === "add" || type === "sub") {
     const amt = parseInt(prompt("Số tiền:"));
-    if (isNaN(amt)) return;
+    if (isNaN(amt) || amt <= 0) return alert("Số tiền không hợp lệ!");
+
     if (type === "add") target.balance += amt;
     else target.balance = Math.max(0, target.balance - amt);
+
     saveData(data);
-    alert("Đã cập nhật!");
-    loadPlayerList();
+    alert("Đã cập nhật số dư!");
   } else if (type === "ban" || type === "unban") {
+    if (target.role === "admin") return alert("Không thể ban/unban admin!");
     target.banned = type === "ban";
     saveData(data);
-    alert(type === "ban" ? "BANNED" : "UNBANNED");
-    loadPlayerList();
+    alert(type === "ban" ? "Đã BAN!" : "Đã UNBAN!");
   } else if (type === "transfer") {
-    if (confirm(`Chuyển admin cho ${targetName}?`)) {
-      data[targetName].role = "admin";
-      data[ADMIN_NAME].role = "player";
-      saveData(data);
-      alert("Chuyển xong! Reload trang.");
-      location.reload();
-    }
+    if (target.role === "admin") return alert("Người này đã là admin!");
+    if (
+      !confirm(
+        `Chuyển quyền ADMIN cho ${targetName} (ID ${target.id})?\nBạn sẽ mất quyền admin!`,
+      )
+    )
+      return;
+
+    data[targetName].role = "admin";
+    data[ADMIN_NAME].role = "player";
+    saveData(data);
+    alert("Chuyển admin thành công! Đang reload...");
+    location.reload();
+    return;
   } else if (type === "reset") {
-    if (confirm(`Xóa player ${targetName}?`)) {
-      delete data[targetName];
-      saveData(data);
-      alert("Reset OK");
-      loadPlayerList();
-    }
+    if (target.role === "admin") return alert("Không thể reset admin!");
+    if (!confirm(`Xóa hoàn toàn người chơi ${targetName} (ID ${target.id})?`))
+      return;
+
+    delete data[targetName];
+    saveData(data);
+    alert("Đã reset player!");
+  }
+
+  // Tự động reload sau mọi hành động thay đổi (trừ find)
+  if (type !== "find") {
+    loadPlayerList(); // cập nhật list ngay
+    setTimeout(() => location.reload(), 800); // reload sau 0.8s để thấy thông báo
   }
 }
 
@@ -227,6 +265,7 @@ function logout() {
 // Load trang
 window.onload = function () {
   initAdmin();
+
   const current = localStorage.getItem("currentUser");
   if (current) {
     const data = getData();
@@ -234,11 +273,14 @@ window.onload = function () {
     if (user) {
       document.getElementById("auth").classList.add("hidden");
       document.getElementById("game").classList.remove("hidden");
+
       document.querySelector("#welcome span").textContent =
         current + " (ID: " + user.id + ")";
+
       document.getElementById("bal").textContent =
         `Số dư: ${user.balance.toLocaleString()} VND`;
-      if (current === ADMIN_NAME) {
+
+      if (user.role === "admin") {
         document.getElementById("adminPanel").classList.remove("hidden");
         loadPlayerList();
       }
