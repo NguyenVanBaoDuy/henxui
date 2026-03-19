@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rồng Đông Tây</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="auth" class="screen">
+      <h1>RỒNG PHƯƠNG ĐÔNG vs TÂY 🐉</h1>
+      <input id="user" placeholder="Username" />
+      <input id="pass" type="password" placeholder="Password" />
+      <button onclick="login()">Đăng nhập</button>
+      <button onclick="register()">Đăng ký (1 player)</button>
+      <p id="msg"></p>
+    </div>
+
+    <div id="game" class="screen hidden">
+      <h2 id="welcome">Chào <span></span></h2>
+      <div id="bal">Số dư: 0 VND</div>
+
+      <select id="side">
+        <option value="dong">Rồng Đông 🐉</option>
+        <option value="tay">Rồng Tây 🐉</option>
+      </select>
+      <input id="bet" type="number" placeholder="Cược (≥1000)" min="1000" />
+      <button onclick="bet()">CHƠI</button>
+
+      <div id="res"></div>
+
+      <!-- Chỉ admin thấy -->
+      <div id="adminPanel" class="hidden">
+        <h3>ADMIN</h3>
+        <input id="tid" type="number" placeholder="ID" />
+        <button onclick="admin('find')">Tìm</button>
+        <button onclick="admin('add')">+ Tiền</button>
+        <button onclick="admin('sub')">- Tiền</button>
+        <button onclick="admin('ban')">Ban</button>
+        <button onclick="admin('unban')">Unban</button>
+        <button onclick="admin('transfer')">Chuyển Admin</button>
+        <button onclick="admin('reset')">Reset Player</button>
+        <div id="ainfo"></div>
+        <ul id="plist"></ul>
+      </div>
+
+      <button onclick="logout()">Thoát</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
